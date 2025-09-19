@@ -18,40 +18,122 @@ interface SupabaseContextValue {
 
 const SupabaseContext = createContext<SupabaseContextValue | undefined>(undefined);
 
-function resolveUserRole(session: Session | null): UserRole {
-  const metadataCandidates: unknown[] = [
-    session?.user?.app_metadata?.role,
-    session?.user?.app_metadata?.roles,
-    session?.user?.user_metadata?.role,
-    session?.user?.user_metadata?.account_type
-  ];
+function matchRoleFromString(value: string): UserRole | null {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
 
-  for (const candidate of metadataCandidates) {
-    if (!candidate) {
-      continue;
-    }
+  if (normalized.includes('admin')) {
+    return 'admin';
+  }
 
-    if (Array.isArray(candidate)) {
-      const normalized = candidate.map(value => String(value).toLowerCase());
-      if (normalized.includes('admin')) {
-        return 'admin';
+  if (normalized.includes('driver')) {
+    return 'driver';
+  }
+
+  return null;
+}
+
+function detectRoleFromValue(value: unknown, visited: WeakSet<object> = new WeakSet()): UserRole | null {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return matchRoleFromString(String(value));
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const role = detectRoleFromValue(entry, visited);
+      if (role) {
+        return role;
       }
-      if (normalized.includes('driver')) {
-        return 'driver';
+    }
+    return null;
+  }
+
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if (visited.has(record)) {
+      return null;
+    }
+    visited.add(record);
+
+    for (const [key, nestedValue] of Object.entries(record)) {
+      const keyLower = key.toLowerCase();
+
+      if (typeof nestedValue === 'boolean' && nestedValue) {
+        if (keyLower.includes('admin')) {
+          return 'admin';
+        }
+        if (keyLower.includes('driver')) {
+          return 'driver';
+        }
       }
-      continue;
+
+      if (
+        keyLower.includes('role') ||
+        keyLower.includes('account_type') ||
+        keyLower.includes('accounttype') ||
+        keyLower.includes('user_role') ||
+        keyLower.includes('userrole')
+      ) {
+        const nestedRole = detectRoleFromValue(nestedValue, visited);
+        if (nestedRole) {
+          return nestedRole;
+        }
+      }
     }
 
-    const normalized = String(candidate).toLowerCase();
-    if (normalized.includes('admin')) {
-      return 'admin';
-    }
-    if (normalized.includes('driver')) {
-      return 'driver';
+    for (const nestedValue of Object.values(record)) {
+      const nestedRole = detectRoleFromValue(nestedValue, visited);
+      if (nestedRole) {
+        return nestedRole;
+      }
     }
   }
 
-  return 'admin';
+  return null;
+}
+
+function resolveUserRole(session: Session | null): UserRole {
+  if (!session?.user) {
+    return 'unknown';
+  }
+
+  const appMetadata = (session.user.app_metadata ?? {}) as Record<string, unknown>;
+  const userMetadata = (session.user.user_metadata ?? {}) as Record<string, unknown>;
+
+  const metadataCandidates: unknown[] = [
+    appMetadata['role'],
+    appMetadata['roles'],
+    appMetadata['user_role'],
+    appMetadata['userRole'],
+    userMetadata['role'],
+    userMetadata['roles'],
+    userMetadata['account_type'],
+    userMetadata['accountType']
+  ];
+
+  for (const candidate of metadataCandidates) {
+    const resolved = detectRoleFromValue(candidate);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  const metadataSources: unknown[] = [appMetadata, userMetadata];
+
+  for (const source of metadataSources) {
+    const resolved = detectRoleFromValue(source);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  return 'unknown';
 }
 
 export function SupabaseProvider({ children }: PropsWithChildren) {
