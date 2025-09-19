@@ -1,14 +1,7 @@
+import { useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Truck, Users, Package2, LogOut, ChartLine, X, User } from 'lucide-react';
+import { Truck, Users, Package2, LogOut, ChartLine, X, User, ClipboardList } from 'lucide-react';
 import { useSupabase } from '../contexts/SupabaseContext';
-
-const navigation = [
-  { name: 'Panel główny', to: '/', icon: ChartLine },
-  { name: 'Mój profil', to: '/profile', icon: User },
-  { name: 'Zlecenia', to: '/deliveries', icon: Package2 },
-  { name: 'Flota', to: '/fleet', icon: Truck },
-  { name: 'Kierowcy', to: '/drivers', icon: Users }
-];
 
 interface SidebarProps {
   isOpen: boolean;
@@ -16,7 +9,27 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const { signOut } = useSupabase();
+  const { signOut, userRole } = useSupabase();
+
+  const navigation = useMemo(() => {
+    if (userRole === 'admin') {
+      return [
+        { name: 'Panel główny', to: '/', icon: ChartLine },
+        { name: 'Mój profil', to: '/profile', icon: User },
+        { name: 'Zlecenia', to: '/deliveries', icon: Package2 },
+        { name: 'Flota', to: '/fleet', icon: Truck },
+        { name: 'Kierowcy', to: '/drivers', icon: Users }
+      ];
+    }
+
+    return [
+      { name: 'Start zmiany', to: '/', icon: ClipboardList },
+      { name: 'Raport dzienny', to: '/profile', icon: User },
+      { name: 'Moje zlecenia', to: '/deliveries', icon: Package2 }
+    ];
+  }, [userRole]);
+
+  const panelTitle = userRole === 'admin' ? 'Panel zarządzania' : 'Panel kierowcy';
 
   const navLinks = navigation.map(item => (
     <NavLink
@@ -50,7 +63,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       <aside className="sticky top-0 hidden h-screen w-72 flex-col border-r border-slate-200/70 bg-white/70 backdrop-blur-xl lg:flex">
         <div className="px-6 py-6">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">3D haulage</p>
-          <h1 className="text-xl font-semibold text-slate-900">Panel kierowców</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{panelTitle}</h1>
         </div>
         <nav className="flex-1 space-y-1 px-4">{navLinks}</nav>
         <div className="border-t border-slate-200/70 px-4 py-5">{signOutButton}</div>
@@ -64,7 +77,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">3D haulage</p>
-            <h1 className="text-xl font-semibold text-slate-900">Panel kierowców</h1>
+            <h1 className="text-xl font-semibold text-slate-900">{panelTitle}</h1>
           </div>
           <button
             type="button"

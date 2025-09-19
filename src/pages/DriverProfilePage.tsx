@@ -11,6 +11,7 @@ import {
   Gauge,
   Loader2,
   MapPin,
+  Package2,
   Route,
   Truck,
   User
@@ -18,58 +19,15 @@ import {
 import { useSupabase } from '../contexts/SupabaseContext';
 import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
-
-interface DriverProfile {
-  id: string;
-  user_id: string;
-  driver_id?: string | null;
-  full_name: string;
-  phone?: string | null;
-  license_number?: string | null;
-  avatar_url?: string | null;
-  home_depot?: string | null;
-}
-
-interface VehicleSummary {
-  id: string;
-  registration?: string | null;
-  make?: string | null;
-  model?: string | null;
-}
-
-interface DriverAssignment {
-  id: string;
-  assignment_date: string;
-  shift_start?: string | null;
-  shift_end?: string | null;
-  depot_name?: string | null;
-  destination_name?: string | null;
-  route_name?: string | null;
-  vehicle?: VehicleSummary | null;
-}
-
-interface ChecklistState {
-  [key: string]: boolean;
-}
-
-interface DriverDailyReport {
-  id: string;
-  assignment_id: string;
-  driver_id?: string | null;
-  start_odometer?: number | null;
-  fuel_level?: number | null;
-  notes?: string | null;
-  checklist_state?: ChecklistState | null;
-  completed_at?: string | null;
-  drive_file_url?: string | null;
-  drive_file_id?: string | null;
-}
-
-interface ChecklistPdfResponse {
-  drive_file_id?: string | null;
-  drive_file_url?: string | null;
-  file_name?: string | null;
-}
+import { useDriverProfile } from '../hooks/useDriverProfile';
+import { fetchDriverAssignments } from '../lib/driverAssignments';
+import type {
+  ChecklistPdfResponse,
+  ChecklistState,
+  DriverAssignment,
+  DriverDailyReport,
+  DriverProfile
+} from '../types/driver';
 
 type ChecklistFormValues = {
   startOdometer: number | '';
@@ -123,30 +81,23 @@ export function DriverProfilePage() {
     data: profile,
     isLoading: isProfileLoading,
     error: profileError
-  } = useQuery<DriverProfile | null>({
-    enabled: Boolean(supabase && session?.user?.id),
-    queryKey: ['driver-profile', session?.user?.id],
-    queryFn: async () => {
-      if (!supabase || !session?.user?.id) {
-        return null;
-      }
-      const { data, error } = await supabase
-        .from('driver_profiles_view')
-        .select(
-          `id, user_id, driver_id, full_name, phone, license_number, avatar_url, home_depot`
-        )
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-
-      if (error) {
-        throw error;
-      }
-
-      return (data as DriverProfile | null) ?? null;
-    }
-  });
+  } = useDriverProfile();
 
   const driverId = profile?.driver_id ?? profile?.id ?? null;
+
+  const assignmentsListQuery = useQuery<DriverAssignment[]>({
+    enabled: Boolean(supabase && driverId),
+    queryKey: ['driver-assignments-list', driverId],
+    queryFn: async () => {
+      if (!supabase || !driverId) {
+        return [];
+      }
+
+      return fetchDriverAssignments(supabase, driverId, {
+        fromDate: dayjs().subtract(7, 'day').format('YYYY-MM-DD')
+      });
+    }
+  });
 
   const {
     data: assignment,
@@ -204,6 +155,15 @@ export function DriverProfilePage() {
       return (data as DriverDailyReport | null) ?? null;
     }
   });
+
+  const upcomingAssignments = useMemo(() => {
+    const assignments = assignmentsListQuery.data ?? [];
+    const startOfToday = dayjs().startOf('day');
+
+    return assignments
+      .filter(item => !dayjs(item.assignment_date).isBefore(startOfToday, 'day'))
+      .slice(0, 3);
+  }, [assignmentsListQuery.data]);
 
   useEffect(() => {
     if (!report) {
@@ -598,6 +558,48 @@ export function DriverProfilePage() {
                 </p>
               </div>
             )}
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-soft">
+            <div className="flex items-center gap-3">
+              <Package2 className="h-6 w-6 text-brand-500" />
+              <h2 className="text-lg font-semibold text-slate-900">Najbliższe zlecenia</h2>
+            </div>
+            {assignmentsListQuery.isLoading ? (
+              <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin text-brand-500" />
+                Ładowanie listy zleceń...
+              </div>
+            ) : assignmentsListQuery.error ? (
+              <div className="mt-4 rounded-2xl border border-dashed border-rose-200 bg-rose-50/80 p-4 text-sm text-rose-600">
+                Nie udało się pobrać zleceń: {' '}
+                {assignmentsListQuery.error instanceof Error
+                  ? assignmentsListQuery.error.message
+                  : 'spróbuj ponownie później.'}
+              </div>
+            ) : upcomingAssignments.length ? (
+              <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                {upcomingAssignments.map(assignment => (
+                  <li key={assignment.id} className="rounded-2xl border border-slate-200 bg-white/60 p-3">
+                    <p className="text-sm font-semibold text-slate-800">
+                      {dayjs(assignment.assignment_date).format('DD.MM.YYYY')} •{' '}
+                      {assignment.route_name ?? 'Trasa bez nazwy'}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Start: {assignment.depot_name ?? '—'} • Cel: {assignment.destination_name ?? '—'}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-slate-500">
+                      Pojazd: {assignment.vehicle?.registration ?? 'Nie przypisano'}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-500">
+                Brak zaplanowanych zleceń na najbliższe dni.
+              </div>
+            )}
+            <p className="mt-4 text-xs text-slate-400">Pełną listę znajdziesz w zakładce „Moje zlecenia”.</p>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 text-sm text-slate-600 shadow-soft">
