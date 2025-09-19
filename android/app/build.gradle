@@ -1,11 +1,11 @@
 apply plugin: 'com.android.application'
 
 android {
-  namespace "com.threedhaulage.app"         // <-- zostaw swoją nazwę pakietu
-  compileSdkVersion rootProject.ext.compileSdkVersion                         // <-- WPROST, bez zmiennych
+  namespace "com.threedhaulage.app"     // <-- zostaw swoją nazwę pakietu
+  compileSdkVersion rootProject.ext.compileSdkVersion
 
   defaultConfig {
-    applicationId "com.threedhaulage.app"    // <-- twoje applicationId
+    applicationId "com.threedhaulage.app"  // <-- twoje applicationId
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
     versionCode 1
