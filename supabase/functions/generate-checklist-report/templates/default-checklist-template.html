@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Raport codzienny kierowcy</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        font-family: "Helvetica", "Arial", sans-serif;
+        margin: 0;
+        padding: 32px;
+        color: #1f2937;
+      }
+      header {
+        border-bottom: 2px solid #4b5563;
+        padding-bottom: 12px;
+        margin-bottom: 24px;
+      }
+      h1 {
+        font-size: 24px;
+        margin: 0;
+      }
+      .metadata {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .metadata span {
+        display: block;
+        font-size: 14px;
+        color: #374151;
+      }
+      .metadata strong {
+        font-size: 16px;
+        color: #111827;
+      }
+      section {
+        margin-bottom: 24px;
+      }
+      section h2 {
+        font-size: 18px;
+        margin-bottom: 12px;
+      }
+      ul.checklist {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      ul.checklist li {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 14px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      ul.checklist li:last-child {
+        border-bottom: none;
+      }
+      ul.checklist li span.label {
+        font-weight: 600;
+        color: #111827;
+      }
+      ul.checklist li span.value {
+        color: #1f2937;
+      }
+      .notes {
+        min-height: 100px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 16px;
+        white-space: pre-wrap;
+        line-height: 1.4;
+        font-size: 14px;
+      }
+      footer {
+        margin-top: 32px;
+        font-size: 12px;
+        color: #6b7280;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Codzienna karta kontrolna kierowcy</h1>
+      <div class="metadata">
+        <div>
+          <span>Kierowca</span>
+          <strong>{{driverName}}</strong>
+        </div>
+        <div>
+          <span>Pojazd</span>
+          <strong>{{vehicleRegistration}}</strong>
+        </div>
+        <div>
+          <span>Data kontroli</span>
+          <strong>{{checklistDate}}</strong>
+        </div>
+        <div>
+          <span>Numer raportu</span>
+          <strong>{{reportNumber}}</strong>
+        </div>
+      </div>
+    </header>
+
+    <section>
+      <h2>Lista kontrolna</h2>
+      <ul class="checklist">
+        {{#items}}
+        <li>
+          <span class="label">{{label}}</span>
+          <span class="value">{{value}}</span>
+        </li>
+        {{/items}}
+        {{^items}}
+        <li>
+          <span class="label">Brak pozycji</span>
+          <span class="value">-</span>
+        </li>
+        {{/items}}
+      </ul>
+    </section>
+
+    <section>
+      <h2>Uwagi kierowcy</h2>
+      <div class="notes">{{notes}}</div>
+    </section>
+
+    <footer>
+      Raport wygenerowano automatycznie w systemie KierowcaApp – {{generatedAt}}.
+    </footer>
+  </body>
+</html>
