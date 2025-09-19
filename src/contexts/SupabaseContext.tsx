@@ -3,16 +3,56 @@ import type { PropsWithChildren } from 'react';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseClient } from '../lib/supabaseClient';
 
+type UserRole = 'admin' | 'driver' | 'unknown';
+
 interface SupabaseContextValue {
   supabase: SupabaseClient | null;
   session: Session | null;
   loading: boolean;
   isConfigured: boolean;
+  userRole: UserRole;
+  isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const SupabaseContext = createContext<SupabaseContextValue | undefined>(undefined);
+
+function resolveUserRole(session: Session | null): UserRole {
+  const metadataCandidates: unknown[] = [
+    session?.user?.app_metadata?.role,
+    session?.user?.app_metadata?.roles,
+    session?.user?.user_metadata?.role,
+    session?.user?.user_metadata?.account_type
+  ];
+
+  for (const candidate of metadataCandidates) {
+    if (!candidate) {
+      continue;
+    }
+
+    if (Array.isArray(candidate)) {
+      const normalized = candidate.map(value => String(value).toLowerCase());
+      if (normalized.includes('admin')) {
+        return 'admin';
+      }
+      if (normalized.includes('driver')) {
+        return 'driver';
+      }
+      continue;
+    }
+
+    const normalized = String(candidate).toLowerCase();
+    if (normalized.includes('admin')) {
+      return 'admin';
+    }
+    if (normalized.includes('driver')) {
+      return 'driver';
+    }
+  }
+
+  return 'admin';
+}
 
 export function SupabaseProvider({ children }: PropsWithChildren) {
   const [supabase] = useState(() => createSupabaseClient());
@@ -66,11 +106,15 @@ export function SupabaseProvider({ children }: PropsWithChildren) {
       await supabase.auth.signOut();
     };
 
+    const userRole = resolveUserRole(session);
+
     return {
       supabase,
       session,
       loading,
       isConfigured,
+      userRole,
+      isAdmin: userRole === 'admin',
       signIn,
       signOut
     } satisfies SupabaseContextValue;
