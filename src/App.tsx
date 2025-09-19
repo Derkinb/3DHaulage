@@ -5,6 +5,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { DeliveriesPage } from './pages/DeliveriesPage';
 import { FleetPage } from './pages/FleetPage';
 import { DriversPage } from './pages/DriversPage';
+import { DriverProfilePage } from './pages/DriverProfilePage';
 import { LoginPage } from './pages/LoginPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -43,6 +44,7 @@ function App() {
         <Route path="deliveries" element={<DeliveriesPage />} />
         <Route path="fleet" element={<FleetPage />} />
         <Route path="drivers" element={<DriversPage />} />
+        <Route path="profile" element={<DriverProfilePage />} />
       </Route>
       <Route path="*" element={<Navigate to={session ? '/' : '/login'} replace />} />
     </Routes>

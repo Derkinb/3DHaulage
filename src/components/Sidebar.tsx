@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom';
-import { Truck, Users, Package2, LogOut, ChartLine, X } from 'lucide-react';
+import { Truck, Users, Package2, LogOut, ChartLine, X, User } from 'lucide-react';
 import { useSupabase } from '../contexts/SupabaseContext';
 
 const navigation = [
   { name: 'Panel główny', to: '/', icon: ChartLine },
+  { name: 'Mój profil', to: '/profile', icon: User },
   { name: 'Zlecenia', to: '/deliveries', icon: Package2 },
   { name: 'Flota', to: '/fleet', icon: Truck },
   { name: 'Kierowcy', to: '/drivers', icon: Users }

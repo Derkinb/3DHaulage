@@ -7,9 +7,12 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint --ext .ts,.tsx src"
+    "lint": "eslint --ext .ts,.tsx src",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:open": "npx cap open android"
   },
   "dependencies": {
+    "@capacitor/core": "^5.8.6",
     "@supabase/supabase-js": "^2.45.4",
     "@tanstack/react-query": "^5.44.0",
     "clsx": "^2.1.1",
@@ -21,6 +24,8 @@
     "react-router-dom": "^6.27.0"
   },
   "devDependencies": {
+    "@capacitor/android": "^5.8.6",
+    "@capacitor/cli": "^5.8.6",
     "@tanstack/eslint-plugin-query": "^5.44.0",
     "@types/node": "^20.12.12",
     "@types/react": "^18.3.5",
