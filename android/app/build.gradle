@@ -1,0 +1,68 @@
+apply plugin: 'com.android.application'
+
+android {
+  namespace "com.3dhaulage.app"         // <-- zostaw swoją nazwę pakietu
+  compileSdk 34                          // <-- WPROST, bez zmiennych
+
+  defaultConfig {
+    applicationId "com.3dhaulage.app"    // <-- twoje applicationId
+    minSdk 24
+    targetSdk 34
+    versionCode 1
+    versionName "1.0"
+    testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled false
+      proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+    }
+  }
+
+  packagingOptions {
+    resources {
+      excludes += [
+        "META-INF/DEPENDENCIES",
+        "META-INF/LICENSE",
+        "META-INF/LICENSE.txt",
+        "META-INF/license.txt",
+        "META-INF/NOTICE",
+        "META-INF/NOTICE.txt",
+        "META-INF/notice.txt",
+        "META-INF/ASL2.0"
+      ]
+    }
+  }
+}
+
+repositories {
+  google()
+  mavenCentral()
+  flatDir { dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs' }
+}
+
+dependencies {
+  implementation project(':capacitor-android')
+
+  implementation 'androidx.appcompat:appcompat:1.6.1'
+  implementation 'androidx.coordinatorlayout:coordinatorlayout:1.2.0'
+  implementation 'androidx.core:core-splashscreen:1.0.1'
+
+  testImplementation 'junit:junit:4.13.2'
+  androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+  androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+
+  implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+  def servicesJSON = file('google-services.json')
+  if (servicesJSON.exists()) {
+    apply plugin: 'com.google.gms.google-services'
+  }
+} catch (Exception e) {
+  logger.info("google-services.json not found, push notifications won't work")
+}

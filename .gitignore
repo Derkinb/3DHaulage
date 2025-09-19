@@ -7,5 +7,4 @@ dist/
 .vscode/
 .idea/
 coverage/
-android/
 ios/
