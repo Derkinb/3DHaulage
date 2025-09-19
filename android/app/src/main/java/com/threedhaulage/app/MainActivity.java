@@ -1,4 +1,4 @@
-package com.3dhaulage.app;
+package com.threedhaulage.app;
 
 import com.getcapacitor.BridgeActivity;
 

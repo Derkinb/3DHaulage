@@ -1,13 +1,13 @@
 apply plugin: 'com.android.application'
 
 android {
-  namespace "com.3dhaulage.app"         // <-- zostaw swoją nazwę pakietu
-  compileSdk 34                          // <-- WPROST, bez zmiennych
+  namespace "com.threedhaulage.app"     // <-- zostaw swoją nazwę pakietu
+  compileSdkVersion rootProject.ext.compileSdkVersion
 
   defaultConfig {
-    applicationId "com.3dhaulage.app"    // <-- twoje applicationId
-    minSdk 24
-    targetSdk 34
+    applicationId "com.threedhaulage.app"  // <-- twoje applicationId
+    minSdkVersion rootProject.ext.minSdkVersion
+    targetSdkVersion rootProject.ext.targetSdkVersion
     versionCode 1
     versionName "1.0"
     testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
