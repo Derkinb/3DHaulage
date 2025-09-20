@@ -27,7 +27,9 @@ export interface DriverAssignment {
   vehicle?: VehicleSummary | null;
 }
 
-export type ChecklistState = Record<string, boolean>;
+export type ChecklistItemValue = 'ok' | 'attention' | 'na';
+
+export type ChecklistState = Record<string, ChecklistItemValue | boolean>;
 
 export interface DriverDailyReport {
   id: string;

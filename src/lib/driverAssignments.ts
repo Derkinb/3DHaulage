@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { DriverAssignment } from '../types/driver';
 
 interface FetchDriverAssignmentsOptions {
@@ -26,6 +26,10 @@ export async function fetchDriverAssignments(
   const { data, error } = await query;
 
   if (error) {
+    if (isMissingRelation(error) || isMissingColumn(error)) {
+      console.warn('Pomijam brakujący widok driver_assignments_view:', error.message);
+      return [];
+    }
     throw error;
   }
 
@@ -33,4 +37,12 @@ export async function fetchDriverAssignments(
     ...assignment,
     vehicle: assignment.vehicle ?? null
   }));
+}
+
+function isMissingRelation(error: PostgrestError) {
+  return error.code === '42P01' || /relation .+ does not exist/i.test(error.message);
+}
+
+function isMissingColumn(error: PostgrestError) {
+  return error.code === '42703' || /column .+ does not exist/i.test(error.message);
 }

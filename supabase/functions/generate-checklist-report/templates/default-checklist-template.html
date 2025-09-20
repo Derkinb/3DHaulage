@@ -28,14 +28,20 @@
         gap: 12px;
         margin-top: 16px;
       }
-      .metadata span {
+      .metadata span,
+      .metadata small {
         display: block;
-        font-size: 14px;
+        font-size: 13px;
         color: #374151;
       }
       .metadata strong {
         font-size: 16px;
         color: #111827;
+      }
+      .metadata small {
+        margin-top: 2px;
+        font-size: 12px;
+        color: #6b7280;
       }
       section {
         margin-bottom: 24px;
@@ -44,29 +50,27 @@
         font-size: 18px;
         margin-bottom: 12px;
       }
-      ul.checklist {
-        list-style: none;
-        padding: 0;
-        margin: 0;
+      table.checklist {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      table.checklist th,
+      table.checklist td {
         border: 1px solid #d1d5db;
-        border-radius: 8px;
-        overflow: hidden;
+        padding: 8px 10px;
       }
-      ul.checklist li {
-        display: flex;
-        justify-content: space-between;
-        padding: 10px 14px;
-        border-bottom: 1px solid #e5e7eb;
+      table.checklist th {
+        background-color: #e5e7eb;
+        text-align: left;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
       }
-      ul.checklist li:last-child {
-        border-bottom: none;
-      }
-      ul.checklist li span.label {
+      table.checklist td.status {
+        width: 60px;
+        text-align: center;
         font-weight: 600;
-        color: #111827;
-      }
-      ul.checklist li span.value {
-        color: #1f2937;
       }
       .notes {
         min-height: 100px;
@@ -96,6 +100,9 @@
         <div>
           <span>Pojazd</span>
           <strong>{{vehicleRegistration}}</strong>
+          {{#vehicleDescription}}
+          <small>{{vehicleDescription}}</small>
+          {{/vehicleDescription}}
         </div>
         <div>
           <span>Data kontroli</span>
@@ -105,25 +112,91 @@
           <span>Numer raportu</span>
           <strong>{{reportNumber}}</strong>
         </div>
+        <div>
+          <span>Odo start</span>
+          <strong>{{odometerStart}}</strong>
+        </div>
+        <div>
+          <span>Paliwo</span>
+          <strong>{{fuelLevel}}</strong>
+        </div>
+        <div>
+          <span>Baza / Cel</span>
+          <strong>{{depotName}} → {{destinationName}}</strong>
+          {{#shiftWindow}}
+          <small>Zmiana: {{shiftWindow}}</small>
+          {{/shiftWindow}}
+        </div>
       </div>
     </header>
 
+    {{#sections}}
+    <section>
+      <h2>{{title}}</h2>
+      <table class="checklist">
+        <thead>
+          <tr>
+            <th>Pozycja</th>
+            <th>OK</th>
+            <th>Usterka</th>
+            <th>N/D</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#items}}
+          <tr>
+            <td>{{label}}</td>
+            <td class="status">{{#ok}}✔{{/ok}}</td>
+            <td class="status">{{#attention}}⚠{{/attention}}</td>
+            <td class="status">{{#na}}—{{/na}}</td>
+            <td>{{value}}</td>
+          </tr>
+          {{/items}}
+        </tbody>
+      </table>
+    </section>
+    {{/sections}}
+
+    {{^sections}}
     <section>
       <h2>Lista kontrolna</h2>
-      <ul class="checklist">
-        {{#items}}
-        <li>
-          <span class="label">{{label}}</span>
-          <span class="value">{{value}}</span>
-        </li>
-        {{/items}}
-        {{^items}}
-        <li>
-          <span class="label">Brak pozycji</span>
-          <span class="value">-</span>
-        </li>
-        {{/items}}
+      <table class="checklist">
+        <thead>
+          <tr>
+            <th>Pozycja</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#items}}
+          <tr>
+            <td>{{label}}</td>
+            <td>{{value}}</td>
+          </tr>
+          {{/items}}
+          {{^items}}
+          <tr>
+            <td colspan="2">Brak pozycji</td>
+          </tr>
+          {{/items}}
+        </tbody>
+      </table>
+    </section>
+    {{/sections}}
+
+    <section>
+      <h2>Wykryte usterki</h2>
+      {{#defectsCount}}
+      <ul>
+        {{#defectItems}}
+        <li>{{label}} — {{value}}</li>
+        {{/defectItems}}
       </ul>
+      {{/defectsCount}}
+      {{^defectsCount}}
+      <p>Brak zgłoszonych usterek.</p>
+      {{/defectsCount}}
     </section>
 
     <section>
