@@ -6,11 +6,13 @@ import { DeliveriesPage } from './pages/DeliveriesPage';
 import { FleetPage } from './pages/FleetPage';
 import { DriversPage } from './pages/DriversPage';
 import { DriverProfilePage } from './pages/DriverProfilePage';
+import { DriverDeliveriesPage } from './pages/DriverDeliveriesPage';
 import { LoginPage } from './pages/LoginPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
-  const { session, loading, isConfigured } = useSupabase();
+  const { session, loading, isConfigured, userRole } = useSupabase();
+  const isAdmin = userRole === 'admin';
 
   if (!isConfigured) {
     return (
@@ -40,11 +42,23 @@ function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<DashboardPage />} />
-        <Route path="deliveries" element={<DeliveriesPage />} />
-        <Route path="fleet" element={<FleetPage />} />
-        <Route path="drivers" element={<DriversPage />} />
-        <Route path="profile" element={<DriverProfilePage />} />
+        {isAdmin ? (
+          <>
+            <Route index element={<DashboardPage />} />
+            <Route path="deliveries" element={<DeliveriesPage />} />
+            <Route path="fleet" element={<FleetPage />} />
+            <Route path="drivers" element={<DriversPage />} />
+            <Route path="profile" element={<DriverProfilePage />} />
+          </>
+        ) : (
+          <>
+            <Route index element={<DriverProfilePage />} />
+            <Route path="profile" element={<DriverProfilePage />} />
+            <Route path="deliveries" element={<DriverDeliveriesPage />} />
+            <Route path="drivers" element={<Navigate to="/" replace />} />
+            <Route path="fleet" element={<Navigate to="/" replace />} />
+          </>
+        )}
       </Route>
       <Route path="*" element={<Navigate to={session ? '/' : '/login'} replace />} />
     </Routes>

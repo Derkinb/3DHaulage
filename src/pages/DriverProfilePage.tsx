@@ -1,75 +1,38 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { Session } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
 import {
   AlertCircle,
   CheckCircle2,
   ClipboardList,
+  FileWarning,
   FileText,
   Fuel,
   Gauge,
   Loader2,
   MapPin,
+  Package2,
   Route,
+  ShieldCheck,
   Truck,
   User
 } from 'lucide-react';
 import { useSupabase } from '../contexts/SupabaseContext';
 import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
+import { useDriverProfile } from '../hooks/useDriverProfile';
+import { fetchDriverAssignments } from '../lib/driverAssignments';
+import type {
+  ChecklistPdfResponse,
+  ChecklistState,
+  DriverAssignment,
+  DriverDailyReport,
+  DriverProfile
+} from '../types/driver';
 
-interface DriverProfile {
-  id: string;
-  user_id: string;
-  driver_id?: string | null;
-  full_name: string;
-  phone?: string | null;
-  license_number?: string | null;
-  avatar_url?: string | null;
-  home_depot?: string | null;
-}
-
-interface VehicleSummary {
-  id: string;
-  registration?: string | null;
-  make?: string | null;
-  model?: string | null;
-}
-
-interface DriverAssignment {
-  id: string;
-  assignment_date: string;
-  shift_start?: string | null;
-  shift_end?: string | null;
-  depot_name?: string | null;
-  destination_name?: string | null;
-  route_name?: string | null;
-  vehicle?: VehicleSummary | null;
-}
-
-interface ChecklistState {
-  [key: string]: boolean;
-}
-
-interface DriverDailyReport {
-  id: string;
-  assignment_id: string;
-  driver_id?: string | null;
-  start_odometer?: number | null;
-  fuel_level?: number | null;
-  notes?: string | null;
-  checklist_state?: ChecklistState | null;
-  completed_at?: string | null;
-  drive_file_url?: string | null;
-  drive_file_id?: string | null;
-}
-
-interface ChecklistPdfResponse {
-  drive_file_id?: string | null;
-  drive_file_url?: string | null;
-  file_name?: string | null;
-}
+type ChecklistStatus = 'ok' | 'attention' | 'na';
 
 type ChecklistFormValues = {
   startOdometer: number | '';
@@ -78,23 +41,210 @@ type ChecklistFormValues = {
   checklist: ChecklistState;
 };
 
-const checklistItems = [
-  { id: 'tires', label: 'Opony i ciśnienie' },
-  { id: 'lights', label: 'Oświetlenie zewnętrzne' },
-  { id: 'fluids', label: 'Płyny eksploatacyjne' },
-  { id: 'documents', label: 'Dokumenty pojazdu i tachograf' },
-  { id: 'safety', label: 'Wyposażenie bezpieczeństwa' },
-  { id: 'cargo_area', label: 'Stan przestrzeni ładunkowej' }
+const checklistSections = [
+  {
+    id: 'documents_cabin',
+    title: 'Dokumenty i kabina kierowcy',
+    icon: ClipboardList,
+    items: [
+      { id: 'documents_available', label: 'Dokumenty pojazdu i ładunku kompletne' },
+      { id: 'tachograph_set', label: 'Tachograf ustawiony / karta kierowcy obecna' },
+      { id: 'seatbelts_clean', label: 'Pasy bezpieczeństwa, fotel, wycieraczki i spryskiwacze' },
+      { id: 'mirrors_windows', label: 'Lusterka i szyby czyste, bez pęknięć' },
+      { id: 'dashboard_warning', label: 'Brak kontrolek ostrzegawczych na desce' }
+    ]
+  },
+  {
+    id: 'vehicle_walkaround',
+    title: 'Obchód pojazdu',
+    icon: Truck,
+    items: [
+      { id: 'lights_external', label: 'Oświetlenie zewnętrzne i kierunkowskazy' },
+      { id: 'tyres_wheels', label: 'Opony, koła, nakrętki' },
+      { id: 'bodywork_damage', label: 'Poszycie, zderzaki, błotniki bez uszkodzeń' },
+      { id: 'fluid_leaks', label: 'Brak wycieków pod pojazdem' },
+      { id: 'number_plates', label: 'Tablice rejestracyjne / oznakowanie czytelne' }
+    ]
+  },
+  {
+    id: 'safety_equipment',
+    title: 'Wyposażenie bezpieczeństwa',
+    icon: ShieldCheck,
+    items: [
+      { id: 'fire_extinguisher', label: 'Gaśnica naładowana i plomba nienaruszona' },
+      { id: 'first_aid', label: 'Apteczka oraz kamizelka odblaskowa' },
+      { id: 'warning_triangle', label: 'Trójkąt ostrzegawczy i kliny pod koła' },
+      { id: 'load_security', label: 'Zabezpieczenia ładunku i pasy / listwy' }
+    ]
+  },
+  {
+    id: 'cargo_area',
+    title: 'Przestrzeń ładunkowa / naczepa',
+    icon: Package2,
+    items: [
+      { id: 'doors_locks', label: 'Drzwi / rolety, zamki i uszczelki sprawne' },
+      { id: 'interior_clean', label: 'Podłoga i wnętrze czyste, bez luźnych elementów' },
+      { id: 'interior_lighting', label: 'Oświetlenie przestrzeni ładunkowej' }
+    ]
+  }
 ] as const;
+
+type ChecklistSections = typeof checklistSections;
+type ChecklistItemDefinition = ChecklistSections[number]['items'][number];
+type ChecklistItemId = ChecklistItemDefinition['id'];
 
 const googleDriveFolderId = import.meta.env.VITE_GOOGLE_DRIVE_PARENT_FOLDER_ID;
 const checklistTemplateId = import.meta.env.VITE_CHECKLIST_TEMPLATE_ID;
 
-function createChecklistState(): ChecklistState {
-  return checklistItems.reduce<ChecklistState>((state, item) => {
-    state[item.id] = false;
+const checklistStatusLabels: Record<ChecklistStatus, string> = {
+  ok: 'OK',
+  attention: 'Wymaga uwagi',
+  na: 'Nie dotyczy'
+};
+
+const checklistStatusSymbols: Record<ChecklistStatus, string> = {
+  ok: '✔',
+  attention: '⚠',
+  na: '—'
+};
+
+const checklistOptions: { value: ChecklistStatus; label: string; description: string }[] = [
+  { value: 'ok', label: 'OK', description: 'Potwierdzam sprawność elementu' },
+  { value: 'attention', label: 'Usterka', description: 'Wymaga zgłoszenia dyspozytorowi' },
+  { value: 'na', label: 'N/D', description: 'Pozycja nie dotyczy pojazdu' }
+];
+
+function createChecklistState(initial?: ChecklistState | null): ChecklistState {
+  return checklistSections.reduce<ChecklistState>((state, section) => {
+    section.items.forEach(item => {
+      const value = initial?.[item.id];
+      state[item.id] = normaliseChecklistValue(value);
+    });
     return state;
-  }, {});
+  }, {} as ChecklistState);
+}
+
+function normaliseChecklistValue(value: unknown): ChecklistStatus {
+  if (value === 'ok' || value === 'attention' || value === 'na') {
+    return value;
+  }
+  if (value === true) {
+    return 'ok';
+  }
+  if (value === false) {
+    return 'attention';
+  }
+  return 'na';
+}
+
+function sanitiseChecklistState(state: ChecklistState): Record<ChecklistItemId, ChecklistStatus> {
+  return checklistSections.reduce<Record<ChecklistItemId, ChecklistStatus>>((acc, section) => {
+    section.items.forEach(item => {
+      acc[item.id] = normaliseChecklistValue(state[item.id]);
+    });
+    return acc;
+  }, {} as Record<ChecklistItemId, ChecklistStatus>);
+}
+
+interface TemplateSectionItem {
+  label: string;
+  status: ChecklistStatus;
+  statusLabel: string;
+  symbol: string;
+  ok: boolean;
+  attention: boolean;
+  na: boolean;
+}
+
+interface TemplateSection {
+  title: string;
+  items: TemplateSectionItem[];
+}
+
+function buildTemplateSections(state: Record<ChecklistItemId, ChecklistStatus>): TemplateSection[] {
+  return checklistSections.map(section => ({
+    title: section.title,
+    items: section.items.map(item => {
+      const status = state[item.id] ?? 'na';
+      return {
+        label: item.label,
+        status,
+        statusLabel: checklistStatusLabels[status],
+        symbol: checklistStatusSymbols[status],
+        ok: status === 'ok',
+        attention: status === 'attention',
+        na: status === 'na'
+      } satisfies TemplateSectionItem;
+    })
+  }));
+}
+
+function formatNumeric(value: number | '' | null | undefined, suffix = '') {
+  if (value === '' || value === null || value === undefined) {
+    return '—';
+  }
+  return `${value}${suffix}`;
+}
+
+function formatPercentage(value: number | '' | null | undefined) {
+  if (value === '' || value === null || value === undefined) {
+    return '—';
+  }
+  return `${value}%`;
+}
+
+function buildChecklistTemplatePayload({
+  profile,
+  assignment,
+  report,
+  checklist,
+  notes,
+  session
+}: {
+  profile: DriverProfile | null | undefined;
+  assignment: DriverAssignment | null | undefined;
+  report: DriverDailyReport;
+  checklist: Record<ChecklistItemId, ChecklistStatus>;
+  notes: string;
+  session: Session | null;
+}) {
+  const sections = buildTemplateSections(checklist);
+  const defects = sections
+    .flatMap(section => section.items.filter(item => item.attention))
+    .map(item => ({ label: item.label, value: item.statusLabel, status: item.status }));
+
+  const assignmentDate = assignment?.assignment_date ?? report.completed_at ?? new Date().toISOString();
+  const shiftWindow = [assignment?.shift_start, assignment?.shift_end].filter(Boolean).join(' – ');
+
+  return {
+    driverName: profile?.full_name ?? session?.user?.email ?? 'Kierowca',
+    driverEmail: session?.user?.email ?? null,
+    vehicleRegistration: assignment?.vehicle?.registration ?? 'Brak danych',
+    vehicleDescription: [assignment?.vehicle?.make, assignment?.vehicle?.model].filter(Boolean).join(' '),
+    depotName: assignment?.depot_name ?? '—',
+    destinationName: assignment?.destination_name ?? '—',
+    checklistDate: dayjs(assignmentDate).format('DD.MM.YYYY'),
+    reportNumber: report.id,
+    odometerStart: formatNumeric(report.start_odometer, ' km'),
+    fuelLevel: formatPercentage(report.fuel_level),
+    shiftWindow: shiftWindow.length ? shiftWindow : '—',
+    sections,
+    items: sections.flatMap(section =>
+      section.items.map(item => ({
+        label: item.label,
+        value: item.statusLabel,
+        status: item.status,
+        ok: item.ok,
+        attention: item.attention,
+        na: item.na,
+        symbol: item.symbol
+      }))
+    ),
+    defectsCount: defects.length,
+    defectItems: defects,
+    notes,
+    generatedAt: new Date().toISOString()
+  };
 }
 
 export function DriverProfilePage() {
@@ -117,36 +267,29 @@ export function DriverProfilePage() {
     }
   });
 
-  const { register, handleSubmit, reset } = form;
+  const { register, handleSubmit, reset, control } = form;
 
   const {
     data: profile,
     isLoading: isProfileLoading,
     error: profileError
-  } = useQuery<DriverProfile | null>({
-    enabled: Boolean(supabase && session?.user?.id),
-    queryKey: ['driver-profile', session?.user?.id],
-    queryFn: async () => {
-      if (!supabase || !session?.user?.id) {
-        return null;
-      }
-      const { data, error } = await supabase
-        .from('driver_profiles_view')
-        .select(
-          `id, user_id, driver_id, full_name, phone, license_number, avatar_url, home_depot`
-        )
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-
-      if (error) {
-        throw error;
-      }
-
-      return (data as DriverProfile | null) ?? null;
-    }
-  });
+  } = useDriverProfile();
 
   const driverId = profile?.driver_id ?? profile?.id ?? null;
+
+  const assignmentsListQuery = useQuery<DriverAssignment[]>({
+    enabled: Boolean(supabase && driverId),
+    queryKey: ['driver-assignments-list', driverId],
+    queryFn: async () => {
+      if (!supabase || !driverId) {
+        return [];
+      }
+
+      return fetchDriverAssignments(supabase, driverId, {
+        fromDate: dayjs().subtract(7, 'day').format('YYYY-MM-DD')
+      });
+    }
+  });
 
   const {
     data: assignment,
@@ -205,6 +348,15 @@ export function DriverProfilePage() {
     }
   });
 
+  const upcomingAssignments = useMemo(() => {
+    const assignments = assignmentsListQuery.data ?? [];
+    const startOfToday = dayjs().startOf('day');
+
+    return assignments
+      .filter(item => !dayjs(item.assignment_date).isBefore(startOfToday, 'day'))
+      .slice(0, 3);
+  }, [assignmentsListQuery.data]);
+
   useEffect(() => {
     if (!report) {
       reset({
@@ -220,12 +372,14 @@ export function DriverProfilePage() {
       startOdometer: report.start_odometer ?? '',
       fuelLevel: report.fuel_level ?? '',
       notes: report.notes ?? '',
-      checklist: {
-        ...createChecklistState(),
-        ...(report.checklist_state ?? {})
-      }
+      checklist: createChecklistState(report.checklist_state ?? null)
     });
   }, [report, reset]);
+
+  const resolvedTemplateId =
+    checklistTemplateId && checklistTemplateId.trim().length
+      ? checklistTemplateId.trim()
+      : 'best-food-checklist';
 
   const checklistMutation = useMutation({
     mutationFn: async (values: ChecklistFormValues) => {
@@ -233,13 +387,14 @@ export function DriverProfilePage() {
         throw new Error('Brak danych Supabase lub aktywnego przydziału.');
       }
 
+      const sanitisedChecklist = sanitiseChecklistState(values.checklist);
       const payload = {
         assignment_id: assignment.id,
         driver_id: driverId,
         start_odometer: values.startOdometer === '' ? null : Number(values.startOdometer),
         fuel_level: values.fuelLevel === '' ? null : Number(values.fuelLevel),
         notes: values.notes,
-        checklist_state: values.checklist,
+        checklist_state: sanitisedChecklist,
         completed_at: new Date().toISOString()
       };
 
@@ -255,20 +410,32 @@ export function DriverProfilePage() {
         throw upsertError;
       }
 
-      let finalReport = upsertedReport as DriverDailyReport;
+      let finalReport: DriverDailyReport = {
+        ...(upsertedReport as DriverDailyReport),
+        checklist_state: sanitisedChecklist
+      };
       let pdfResult: ChecklistPdfResponse | null = null;
       let pdfErrorMessage: string | null = null;
 
       try {
+        const templateData = buildChecklistTemplatePayload({
+          profile,
+          assignment,
+          report: finalReport,
+          checklist: sanitisedChecklist,
+          notes: values.notes,
+          session
+        });
+
         const { data: pdfData, error: pdfError } = await supabase.functions.invoke<ChecklistPdfResponse>(
           'generate-checklist-report',
           {
             body: {
-              report_id: upsertedReport.id,
-              assignment_id: assignment.id,
-              driver_id: driverId,
-              google_drive_parent_id: googleDriveFolderId || undefined,
-              checklist_template_id: checklistTemplateId || undefined
+              report_id: finalReport.id,
+              template_id: resolvedTemplateId,
+              template_data: templateData,
+              drive_folder_id: googleDriveFolderId || undefined,
+              prefer_download_link: false
             }
           }
         );
@@ -292,14 +459,17 @@ export function DriverProfilePage() {
             drive_file_id: pdfResult.drive_file_id ?? null,
             drive_file_url: pdfResult.drive_file_url ?? null
           })
-          .eq('id', upsertedReport.id)
+          .eq('id', finalReport.id)
           .select(
             'id, assignment_id, driver_id, start_odometer, fuel_level, notes, checklist_state, completed_at, drive_file_url, drive_file_id'
           )
           .single();
 
         if (updatedReport) {
-          finalReport = updatedReport as DriverDailyReport;
+          finalReport = {
+            ...(updatedReport as DriverDailyReport),
+            checklist_state: sanitisedChecklist
+          };
         }
       }
 
@@ -340,6 +510,14 @@ export function DriverProfilePage() {
     setSubmitStatus(null);
     checklistMutation.mutate(values);
   };
+
+  const lastDefectCount = useMemo(() => {
+    if (!report?.checklist_state) {
+      return 0;
+    }
+    const normalised = sanitiseChecklistState(report.checklist_state);
+    return Object.values(normalised).filter(status => status === 'attention').length;
+  }, [report?.checklist_state]);
 
   const isLoading = isProfileLoading || isAssignmentLoading || isReportLoading;
 
@@ -423,9 +601,20 @@ export function DriverProfilePage() {
               Brak wygenerowanego PDF dla dzisiejszej checklisty. Uzupełnij formularz poniżej, aby utworzyć raport.
             </p>
           )}
+          <div className="mt-3 flex items-center gap-2 text-xs">
+            {lastDefectCount > 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-3 py-1 font-semibold text-rose-600">
+                <FileWarning className="h-3.5 w-3.5" /> {lastDefectCount} pozycji wymaga uwagi
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-600">
+                <CheckCircle2 className="h-3.5 w-3.5" /> Brak zgłoszonych usterek
+              </span>
+            )}
+          </div>
           {submitStatus?.type === 'warning' && submitStatus.driveLink ? (
             <p className="mt-2 text-xs text-brand-600">
-              Zapisany raport: 
+              Zapisany raport:
               <a
                 href={submitStatus.driveLink}
                 target="_blank"
@@ -510,24 +699,39 @@ export function DriverProfilePage() {
                 </label>
               </div>
 
-              <fieldset className="space-y-3">
-                <legend className="text-sm font-medium text-slate-600">Szybka kontrola pojazdu</legend>
-                <div className="grid gap-3 md:grid-cols-2">
-                  {checklistItems.map(item => (
-                    <label
-                      key={item.id}
-                      className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm transition hover:border-brand-200"
-                    >
-                      <input
-                        type="checkbox"
-                        className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500"
-                        {...register(`checklist.${item.id}` as const)}
-                      />
-                      <span className="font-medium text-slate-700">{item.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
+              <ChecklistLegend />
+
+              <div className="space-y-5">
+                {checklistSections.map(section => (
+                  <fieldset
+                    key={section.id}
+                    className="space-y-4 rounded-3xl border border-slate-200 bg-white/70 p-4 shadow-sm"
+                  >
+                    <legend className="flex items-center gap-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                      <section.icon className="h-4 w-4 text-brand-500" />
+                      {section.title}
+                    </legend>
+                    <div className="space-y-3">
+                      {section.items.map(item => (
+                        <Controller
+                          key={item.id}
+                          name={`checklist.${item.id}` as const}
+                          control={control}
+                          render={({ field }) => (
+                            <ChecklistRow
+                              name={item.id}
+                              label={item.label}
+                              value={normaliseChecklistValue(field.value)}
+                              onChange={field.onChange}
+                              disabled={checklistMutation.isPending}
+                            />
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </fieldset>
+                ))}
+              </div>
 
               <label className="flex flex-col gap-2">
                 <span className="text-sm font-medium text-slate-600">Uwagi dodatkowe</span>
@@ -600,6 +804,48 @@ export function DriverProfilePage() {
             )}
           </div>
 
+          <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-soft">
+            <div className="flex items-center gap-3">
+              <Package2 className="h-6 w-6 text-brand-500" />
+              <h2 className="text-lg font-semibold text-slate-900">Najbliższe zlecenia</h2>
+            </div>
+            {assignmentsListQuery.isLoading ? (
+              <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin text-brand-500" />
+                Ładowanie listy zleceń...
+              </div>
+            ) : assignmentsListQuery.error ? (
+              <div className="mt-4 rounded-2xl border border-dashed border-rose-200 bg-rose-50/80 p-4 text-sm text-rose-600">
+                Nie udało się pobrać zleceń: {' '}
+                {assignmentsListQuery.error instanceof Error
+                  ? assignmentsListQuery.error.message
+                  : 'spróbuj ponownie później.'}
+              </div>
+            ) : upcomingAssignments.length ? (
+              <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                {upcomingAssignments.map(assignment => (
+                  <li key={assignment.id} className="rounded-2xl border border-slate-200 bg-white/60 p-3">
+                    <p className="text-sm font-semibold text-slate-800">
+                      {dayjs(assignment.assignment_date).format('DD.MM.YYYY')} •{' '}
+                      {assignment.route_name ?? 'Trasa bez nazwy'}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Start: {assignment.depot_name ?? '—'} • Cel: {assignment.destination_name ?? '—'}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-slate-500">
+                      Pojazd: {assignment.vehicle?.registration ?? 'Nie przypisano'}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-500">
+                Brak zaplanowanych zleceń na najbliższe dni.
+              </div>
+            )}
+            <p className="mt-4 text-xs text-slate-400">Pełną listę znajdziesz w zakładce „Moje zlecenia”.</p>
+          </div>
+
           <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 text-sm text-slate-600 shadow-soft">
             <h2 className="text-lg font-semibold text-slate-900">Jak działa eksport do Google Drive?</h2>
             <ol className="mt-3 space-y-2 text-sm leading-relaxed">
@@ -628,5 +874,71 @@ function ClockIcon() {
         clipRule="evenodd"
       />
     </svg>
+  );
+}
+
+function ChecklistLegend() {
+  return (
+    <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/80 p-4 text-xs text-slate-600">
+      <p className="text-sm font-semibold text-slate-500">Legenda kontroli</p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        {checklistOptions.map(option => (
+          <div key={option.value} className="flex items-start gap-2">
+            <span className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-700">
+              {checklistStatusSymbols[option.value]}
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-slate-700">{option.label}</p>
+              <p className="text-xs leading-snug text-slate-500">{option.description}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface ChecklistRowProps {
+  name: string;
+  label: string;
+  value: ChecklistStatus;
+  onChange: (value: ChecklistStatus) => void;
+  disabled?: boolean;
+}
+
+function ChecklistRow({ name, label, value, onChange, disabled }: ChecklistRowProps) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-semibold text-slate-700">{label}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          {checklistOptions.map(option => {
+            const isActive = value === option.value;
+            return (
+              <label
+                key={option.value}
+                className={`group relative inline-flex cursor-pointer items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-semibold transition ${
+                  isActive
+                    ? 'border-brand-500 bg-brand-500 text-white shadow'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-brand-200 hover:bg-brand-50'
+                } ${disabled ? 'opacity-70' : ''}`}
+              >
+                <input
+                  type="radio"
+                  className="sr-only"
+                  name={name}
+                  value={option.value}
+                  checked={isActive}
+                  onChange={() => onChange(option.value)}
+                  disabled={disabled}
+                />
+                <span className="text-base">{checklistStatusSymbols[option.value]}</span>
+                <span>{option.label}</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }

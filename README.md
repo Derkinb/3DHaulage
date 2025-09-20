@@ -31,7 +31,7 @@ Androidzie dzięki Capacitorowi.
    VITE_SUPABASE_URL="https://twoj-projekt.supabase.co"
    VITE_SUPABASE_ANON_KEY="twój-klucz-anon"
    VITE_GOOGLE_DRIVE_PARENT_FOLDER_ID="id-folderu-na-dysku"
-   VITE_CHECKLIST_TEMPLATE_ID="opcjonalny-id-szablonu"
+   VITE_CHECKLIST_TEMPLATE_ID="best-food-checklist"
    ```
 2. Zainstaluj zależności (patrz sekcja „Instalacja zależności”).
 3. Uruchom środowisko deweloperskie: `npm run dev` – aplikacja wystartuje pod `http://localhost:5173`.
@@ -177,6 +177,11 @@ Dopasuj polityki do własnego schematu – powyższe są wzorcem startowym.
    ```
    > **Uwaga:** powyższy kod jest szkicem referencyjnym – w zależności od użytych bibliotek możesz potrzebować innej konwersji
    > strumienia PDF na `Uint8Array` w środowisku Deno.
+
+   W repozytorium znajdują się dwa gotowe szablony HTML wykorzystywane przez funkcję:
+
+   - `default-checklist-template.html` – uniwersalny raport z tabelą statusów,
+   - `best-food-checklist.html` – zielona karta inspirowana papierową checklistą (ustaw jako `VITE_CHECKLIST_TEMPLATE_ID=best-food-checklist`).
 2. Ustaw sekrety funkcji (Supabase → Edge Functions → Secrets):
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `GOOGLE_CLIENT_EMAIL`

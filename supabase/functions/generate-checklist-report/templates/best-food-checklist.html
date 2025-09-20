@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Raport kontroli pojazdu</title>
+    <style>
+      body {
+        font-family: 'Helvetica', 'Arial', sans-serif;
+        background: #d4efc5;
+        color: #0b3d2e;
+        margin: 0;
+        padding: 36px;
+      }
+      .sheet {
+        background: #f1f8ec;
+        border: 2px solid #0b3d2e;
+        box-shadow: 0 12px 30px rgba(11, 61, 46, 0.15);
+        padding: 28px 32px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 2px solid #0b3d2e;
+        padding-bottom: 16px;
+        margin-bottom: 20px;
+      }
+      header h1 {
+        font-size: 22px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        margin: 0;
+      }
+      header span.subtle {
+        display: block;
+        margin-top: 6px;
+        font-size: 12px;
+        color: #1a5c45;
+      }
+      .meta-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        font-size: 13px;
+      }
+      .meta-table th,
+      .meta-table td {
+        border: 1px solid rgba(11, 61, 46, 0.4);
+        padding: 8px 10px;
+        background: rgba(255, 255, 255, 0.7);
+      }
+      .meta-table th {
+        width: 25%;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-align: left;
+        color: #0b3d2e;
+      }
+      .checklist-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        margin-bottom: 18px;
+      }
+      .checklist-table th,
+      .checklist-table td {
+        border: 1px solid rgba(11, 61, 46, 0.35);
+        padding: 7px 8px;
+        background: rgba(255, 255, 255, 0.6);
+      }
+      .checklist-table thead th {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        background: rgba(11, 61, 46, 0.12);
+      }
+      .checklist-table td.status {
+        width: 50px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 14px;
+      }
+      .section-heading {
+        background: rgba(11, 61, 46, 0.2);
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        padding: 6px 10px;
+      }
+      .defects-box,
+      .notes-box {
+        border: 1px dashed rgba(11, 61, 46, 0.6);
+        background: rgba(255, 255, 255, 0.65);
+        padding: 12px;
+        margin-bottom: 16px;
+        min-height: 70px;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      footer {
+        border-top: 1px solid rgba(11, 61, 46, 0.3);
+        padding-top: 10px;
+        font-size: 10px;
+        text-align: right;
+        color: #1a5c45;
+      }
+      .signature-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        margin-top: 24px;
+      }
+      .signature-row .signature {
+        flex: 1;
+        border-top: 1px solid rgba(11, 61, 46, 0.7);
+        text-align: center;
+        padding-top: 6px;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sheet">
+      <header>
+        <div>
+          <h1>3D Haulage</h1>
+          <span class="subtle">Driver Vehicle Check &amp; Defect Report</span>
+        </div>
+        <div style="text-align: right; font-size: 12px;">
+          <strong>Raport nr:</strong> {{reportNumber}}<br />
+          <strong>Data:</strong> {{checklistDate}}
+        </div>
+      </header>
+
+      <table class="meta-table">
+        <tbody>
+          <tr>
+            <th>Kierowca</th>
+            <td>{{driverName}}{{#driverEmail}}<br /><small>{{driverEmail}}</small>{{/driverEmail}}</td>
+            <th>Pojazd</th>
+            <td>{{vehicleRegistration}}{{#vehicleDescription}}<br /><small>{{vehicleDescription}}</small>{{/vehicleDescription}}</td>
+          </tr>
+          <tr>
+            <th>Baza wyjazdu</th>
+            <td>{{depotName}}</td>
+            <th>Miejsce docelowe</th>
+            <td>{{destinationName}}</td>
+          </tr>
+          <tr>
+            <th>Zmiana</th>
+            <td>{{#shiftWindow}}{{shiftWindow}}{{/shiftWindow}}{{^shiftWindow}}—{{/shiftWindow}}</td>
+            <th>Stan licznika</th>
+            <td>{{odometerStart}}</td>
+          </tr>
+          <tr>
+            <th>Poziom paliwa</th>
+            <td>{{fuelLevel}}</td>
+            <th>Usterki zgłoszone</th>
+            <td>{{defectsCount}}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <table class="checklist-table">
+        <thead>
+          <tr>
+            <th>Pozycja kontrolna</th>
+            <th>OK</th>
+            <th>Usterka</th>
+            <th>N/D</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#sections}}
+          <tr>
+            <td colspan="5" class="section-heading">{{title}}</td>
+          </tr>
+          {{#items}}
+          <tr>
+            <td>{{label}}</td>
+            <td class="status">{{#ok}}✔{{/ok}}</td>
+            <td class="status">{{#attention}}⚠{{/attention}}</td>
+            <td class="status">{{#na}}—{{/na}}</td>
+            <td>{{value}}</td>
+          </tr>
+          {{/items}}
+          {{/sections}}
+          {{^sections}}
+          {{#items}}
+          <tr>
+            <td>{{label}}</td>
+            <td class="status"></td>
+            <td class="status"></td>
+            <td class="status"></td>
+            <td>{{value}}</td>
+          </tr>
+          {{/items}}
+          {{^items}}
+          <tr>
+            <td colspan="5">Brak pozycji do wyświetlenia</td>
+          </tr>
+          {{/items}}
+          {{/sections}}
+        </tbody>
+      </table>
+
+      <div class="defects-box">
+        <strong>Usterki do zgłoszenia:</strong><br />
+        {{#defectsCount}}
+        <ul style="margin: 6px 0 0 18px; padding: 0;">
+          {{#defectItems}}
+          <li>{{label}} — {{value}}</li>
+          {{/defectItems}}
+        </ul>
+        {{/defectsCount}}
+        {{^defectsCount}}
+        Brak zgłoszonych usterek.
+        {{/defectsCount}}
+      </div>
+
+      <div class="notes-box">
+        <strong>Uwagi kierowcy:</strong><br />
+        {{notes}}
+      </div>
+
+      <div class="signature-row">
+        <div class="signature">Podpis kierowcy</div>
+        <div class="signature">Podpis przełożonego</div>
+      </div>
+
+      <footer>
+        Raport wygenerowano automatycznie {{generatedAt}} przez system 3D Haulage.
+      </footer>
+    </div>
+  </body>
+</html>

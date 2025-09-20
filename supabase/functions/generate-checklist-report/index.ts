@@ -19,14 +19,38 @@ type TemplateResource =
   | { id: string; kind: "html"; content: string }
   | { id: string; kind: "pdf"; content: Uint8Array };
 
-type TemplateDataItem = { label: string; value: string };
+type TemplateDataItem = {
+  label: string;
+  value: string;
+  status?: string;
+  symbol?: string;
+  ok?: boolean;
+  attention?: boolean;
+  na?: boolean;
+  note?: string | null;
+};
+
+type TemplateSection = {
+  title: string;
+  items: TemplateDataItem[];
+};
 
 type TemplateData = {
   driverName: string;
+  driverEmail?: string | null;
   vehicleRegistration: string;
+  vehicleDescription?: string;
+  depotName?: string;
+  destinationName?: string;
   checklistDate: string;
   reportNumber: string;
+  shiftWindow?: string;
+  odometerStart?: string;
+  fuelLevel?: string;
   items: TemplateDataItem[];
+  sections: TemplateSection[];
+  defectsCount: number;
+  defectItems: TemplateDataItem[];
   notes: string;
   generatedAt: string;
 };
@@ -360,6 +384,15 @@ function buildTemplateData(
     normalisedReport.user?.full_name,
   ], "Nieznany kierowca");
 
+  const driverEmail = pickString([
+    normalisedOverrides?.driverEmail,
+    normalisedOverrides?.driver_email,
+    normalisedOverrides?.driver?.email,
+    normalisedReport.driver_email,
+    normalisedReport.driver?.email,
+    normalisedReport.user?.email,
+  ], null);
+
   const vehicleRegistration = pickString([
     normalisedOverrides?.vehicleRegistration,
     normalisedOverrides?.vehicle_registration,
@@ -370,6 +403,18 @@ function buildTemplateData(
     normalisedReport.vehicle?.registration,
     normalisedReport.vehicle?.plate,
   ], "Brak danych");
+
+  const vehicleDescription = pickString([
+    normalisedOverrides?.vehicleDescription,
+    normalisedOverrides?.vehicle_description,
+    normalisedOverrides?.vehicle?.description,
+    normalisedOverrides?.vehicle?.label,
+    normalisedReport.vehicle_description,
+    normalisedReport.vehicle?.description,
+    [normalisedReport.vehicle?.make, normalisedReport.vehicle?.model]
+      .filter(Boolean)
+      .join(" "),
+  ], null);
 
   const checklistDate = pickDate([
     normalisedOverrides?.checklistDate,
@@ -392,7 +437,62 @@ function buildTemplateData(
     reportId,
   ], `Raport-${reportId}`);
 
-  const items = chooseItems([
+  const depotName = pickString([
+    normalisedOverrides?.depotName,
+    normalisedOverrides?.depot_name,
+    normalisedReport.depotName,
+    normalisedReport.depot_name,
+    normalisedReport.assignment?.depot_name,
+  ], "—");
+
+  const destinationName = pickString([
+    normalisedOverrides?.destinationName,
+    normalisedOverrides?.destination_name,
+    normalisedReport.destinationName,
+    normalisedReport.destination_name,
+    normalisedReport.assignment?.destination_name,
+  ], "—");
+
+  const shiftWindow = pickString([
+    normalisedOverrides?.shiftWindow,
+    normalisedOverrides?.shift_window,
+    normalisedReport.shiftWindow,
+    normalisedReport.shift_window,
+    normalisedReport.assignment?.shift_window,
+    normalisedReport.assignment
+      ? [normalisedReport.assignment.shift_start, normalisedReport.assignment.shift_end]
+          .filter(Boolean)
+          .join(" – ")
+      : undefined,
+  ], null);
+
+  const odometerStart = pickString([
+    normalisedOverrides?.odometerStart,
+    normalisedOverrides?.odometer_start,
+    normalisedOverrides?.start_odometer,
+    normalisedReport.odometerStart,
+    normalisedReport.start_odometer,
+    normalisedReport.checklist_payload?.start_odometer,
+  ], "—");
+
+  const fuelLevel = pickString([
+    normalisedOverrides?.fuelLevel,
+    normalisedOverrides?.fuel_level,
+    normalisedReport.fuelLevel,
+    normalisedReport.fuel_level,
+    normalisedReport.checklist_payload?.fuel_level,
+  ], "—");
+
+  const sections = chooseSections([
+    normalisedOverrides?.sections,
+    normalisedOverrides?.checklist?.sections,
+    normalisedOverrides?.checklist_sections,
+    normalisedReport.sections,
+    normalisedReport.checklist_sections,
+    normalisedReport.checklist?.sections,
+  ]);
+
+  const baseItems = chooseItems([
     normalisedOverrides?.items,
     normalisedOverrides?.checklist?.items,
     normalisedOverrides?.checklist,
@@ -405,6 +505,10 @@ function buildTemplateData(
     normalisedReport.checklist_payload,
   ]);
 
+  const items = sections.length
+    ? sections.flatMap(section => section.items)
+    : baseItems;
+
   const notes = pickString([
     normalisedOverrides?.notes,
     normalisedOverrides?.comments,
@@ -415,12 +519,48 @@ function buildTemplateData(
     normalisedReport.checklist_payload?.notes,
   ], "Brak dodatkowych uwag.");
 
+  const explicitDefects = chooseItems([
+    normalisedOverrides?.defectItems,
+    normalisedOverrides?.defects,
+    normalisedOverrides?.defect_items,
+    normalisedReport.defectItems,
+    normalisedReport.defects,
+    normalisedReport.checklist_payload?.defects,
+  ]);
+
+  const derivedDefects = explicitDefects.length
+    ? explicitDefects
+    : items.filter((item) =>
+        item.attention === true || item.status === "attention" || /uwag/i.test(item.value)
+      ).map((item) => ({
+        ...item,
+        status: item.status ?? (item.attention ? "attention" : undefined),
+      }));
+
+  const finalItems = items.length ? items : [{ label: "Status", value: "Brak danych" }];
+  const finalSections = sections.length
+    ? sections.map((section) => ({
+        title: section.title,
+        items: section.items.length ? section.items : finalItems,
+      }))
+    : [];
+
   return {
     driverName,
+    driverEmail,
     vehicleRegistration,
+    vehicleDescription: vehicleDescription ?? undefined,
+    depotName,
+    destinationName,
     checklistDate,
     reportNumber,
-    items: items.length ? items : [{ label: "Status", value: "Brak danych" }],
+    shiftWindow: shiftWindow ?? undefined,
+    odometerStart,
+    fuelLevel,
+    items: finalItems,
+    sections: finalSections,
+    defectsCount: derivedDefects.length,
+    defectItems: derivedDefects,
     notes,
     generatedAt: new Date().toLocaleString("pl-PL"),
   };
@@ -498,6 +638,14 @@ function chooseItems(sources: unknown[]): TemplateDataItem[] {
   return [];
 }
 
+function chooseSections(sources: unknown[]): TemplateSection[] {
+  for (const source of sources) {
+    const sections = normaliseSections(source);
+    if (sections.length) return sections;
+  }
+  return [];
+}
+
 function normaliseItems(source: unknown): TemplateDataItem[] {
   if (!source) return [];
 
@@ -518,8 +666,32 @@ function normaliseItems(source: unknown): TemplateDataItem[] {
           record.question,
         ], `Pozycja ${items.length + 1}`);
         const valueCandidate =
-          record.value ?? record.answer ?? record.status ?? record.result ??
-            record.checked;
+          record.value ?? record.answer ?? record.result ?? record.checked;
+        const status = pickString([
+          record.status,
+          record.state,
+          record.code,
+        ], null);
+        const symbol = pickString([
+          record.symbol,
+          record.icon,
+        ], null);
+        const ok = coerceBoolean(
+          record.ok ?? record.is_ok ?? (status === "ok" ? true : undefined),
+        );
+        const attention = coerceBoolean(
+          record.attention ?? record.is_attention ?? record.has_issue ??
+            (status === "attention" ? true : undefined),
+        );
+        const na = coerceBoolean(
+          record.na ?? record.is_na ?? record.not_applicable ??
+            (status === "na" ? true : undefined),
+        );
+        const note = pickString([
+          record.note,
+          record.notes,
+          record.comment,
+        ], null);
         let value: string;
         if (typeof valueCandidate === "boolean") {
           value = valueCandidate ? "Tak" : "Nie";
@@ -527,12 +699,23 @@ function normaliseItems(source: unknown): TemplateDataItem[] {
           typeof valueCandidate === "string" || typeof valueCandidate === "number"
         ) {
           value = String(valueCandidate);
+        } else if (status) {
+          value = status;
         } else if (record.checked !== undefined) {
           value = record.checked ? "Tak" : "Nie";
         } else {
           value = "-";
         }
-        items.push({ label, value });
+        items.push({
+          label,
+          value,
+          status: status ?? undefined,
+          symbol: symbol ?? undefined,
+          ok: ok ?? undefined,
+          attention: attention ?? undefined,
+          na: na ?? undefined,
+          note,
+        });
       }
     }
     return items;
@@ -565,6 +748,68 @@ function normaliseItems(source: unknown): TemplateDataItem[] {
   }
 
   return [];
+}
+
+function normaliseSections(source: unknown): TemplateSection[] {
+  if (!source) return [];
+
+  if (Array.isArray(source)) {
+    const sections: TemplateSection[] = [];
+    for (const entry of source) {
+      if (!entry || typeof entry !== "object") continue;
+      const record = entry as Record<string, unknown>;
+      const title = pickString([
+        record.title,
+        record.name,
+        record.section,
+        record.heading,
+      ], `Sekcja ${sections.length + 1}`) ?? `Sekcja ${sections.length + 1}`;
+      const itemsSource =
+        record.items ?? record.entries ?? record.questions ?? record.values;
+      const items = normaliseItems(itemsSource);
+      if (!items.length) continue;
+      sections.push({ title, items });
+    }
+    return sections;
+  }
+
+  if (typeof source === "object") {
+    const sections: TemplateSection[] = [];
+    for (const [key, value] of Object.entries(source as Record<string, unknown>)) {
+      const items = normaliseItems(value);
+      if (!items.length) continue;
+      sections.push({
+        title: pickString([key], key) ?? key,
+        items,
+      });
+    }
+    return sections;
+  }
+
+  if (typeof source === "string") {
+    try {
+      const parsed = JSON.parse(source);
+      return normaliseSections(parsed);
+    } catch (_error) {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+function coerceBoolean(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  if (typeof value === "string") {
+    const normalised = value.trim().toLowerCase();
+    if (["1", "true", "yes", "y", "ok"].includes(normalised)) return true;
+    if (["0", "false", "no", "n"].includes(normalised)) return false;
+  }
+  return undefined;
 }
 
 function slugify(value: string): string {
