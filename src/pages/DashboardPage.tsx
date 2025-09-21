@@ -59,11 +59,18 @@ export function DashboardPage() {
     const deliveries = deliveriesQuery.data ?? [];
     const vehicles = vehiclesQuery.data ?? [];
 
-    const activeDeliveries = deliveries.filter(delivery => delivery.status?.toLowerCase().includes('progress')).length;
-    const completedToday = deliveries.filter(delivery =>
-      delivery.status?.toLowerCase().includes('complete') && dayjs(delivery.delivery_time).isSame(dayjs(), 'day')
-    ).length;
-    const delayedDeliveries = deliveries.filter(delivery => delivery.status?.toLowerCase().includes('delay')).length;
+    const activeDeliveries = deliveries.filter(delivery => {
+      const status = (delivery.status ?? '').toLowerCase();
+      return status.includes('progress');
+    }).length;
+    const completedToday = deliveries.filter(delivery => {
+      const status = (delivery.status ?? '').toLowerCase();
+      return status.includes('complete') && dayjs(delivery.delivery_time).isSame(dayjs(), 'day');
+    }).length;
+    const delayedDeliveries = deliveries.filter(delivery => {
+      const status = (delivery.status ?? '').toLowerCase();
+      return status.includes('delay');
+    }).length;
 
     const metricsData = [
       {
@@ -97,7 +104,10 @@ export function DashboardPage() {
     ];
 
     const sorted = [...deliveries]
-      .filter(delivery => delivery.status?.toLowerCase().includes('progress'))
+      .filter(delivery => {
+        const status = (delivery.status ?? '').toLowerCase();
+        return status.includes('progress');
+      })
       .sort((a, b) => dayjs(a.delivery_time).diff(dayjs(b.delivery_time)))
       .slice(0, 3);
 
