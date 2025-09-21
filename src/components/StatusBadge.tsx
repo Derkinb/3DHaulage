@@ -30,8 +30,13 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status }: StatusBadgeProps) {
-  const normalizedStatus = (status?.toLowerCase().replace(/\s+/g, '_') as Status) ?? 'planned';
-  const fallback = statusMap.planned;
+  const fallbackStatus: Status = 'planned';
+  const rawStatus = (status ?? '').trim();
+  const normalizedStatus = rawStatus
+    ? (rawStatus.toLowerCase().replace(/\s+/g, '_') as Status)
+    : fallbackStatus;
+
+  const fallback = statusMap[fallbackStatus];
   const { label, className } = statusMap[normalizedStatus] ?? fallback;
 
   return (
