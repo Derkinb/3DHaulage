@@ -33,7 +33,7 @@ export function TopBar({ onToggleSidebar }: TopBarProps) {
               <Menu className="h-5 w-5" />
             </button>
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-brand-600">3D Haulage</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-brand-600">3DHaulage</p>
               <h2 className="mt-1 text-2xl font-semibold text-slate-900">Witamy ponownie!</h2>
               <p className="text-sm text-slate-500">{dayjs().format('dddd, D MMMM YYYY')}</p>
             </div>

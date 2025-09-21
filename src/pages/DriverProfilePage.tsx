@@ -379,7 +379,7 @@ export function DriverProfilePage() {
   const resolvedTemplateId =
     checklistTemplateId && checklistTemplateId.trim().length
       ? checklistTemplateId.trim()
-      : 'best-food-checklist';
+      : '3dhaulage-checklist';
 
   const checklistMutation = useMutation({
     mutationFn: async (values: ChecklistFormValues) => {

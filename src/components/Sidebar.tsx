@@ -23,7 +23,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     }
 
     return [
-      { name: 'Start zmiany', to: '/', icon: ClipboardList },
+      { name: 'Checklista', to: '/', icon: ClipboardList },
       { name: 'Raport dzienny', to: '/profile', icon: User },
       { name: 'Moje zlecenia', to: '/deliveries', icon: Package2 }
     ];
@@ -62,7 +62,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     <>
       <aside className="sticky top-0 hidden h-screen w-72 flex-col border-r border-slate-200/70 bg-white/70 backdrop-blur-xl lg:flex">
         <div className="px-6 py-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">3D haulage</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">3DHaulage</p>
           <h1 className="text-xl font-semibold text-slate-900">{panelTitle}</h1>
         </div>
         <nav className="flex-1 space-y-1 px-4">{navLinks}</nav>
@@ -76,7 +76,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       >
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">3D haulage</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">3DHaulage</p>
             <h1 className="text-xl font-semibold text-slate-900">{panelTitle}</h1>
           </div>
           <button
