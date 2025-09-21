@@ -34,7 +34,7 @@ export function LoginPage() {
       </div>
       <div className="mx-auto w-full max-w-md rounded-3xl border border-white/10 bg-white/10 p-10 shadow-2xl backdrop-blur-xl">
         <div className="mb-8 text-center text-white">
-          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-white/80">3D Haulage</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-white/80">3DHaulage</p>
           <h1 className="mt-3 text-3xl font-semibold">Panel logowania</h1>
           <p className="mt-2 text-sm text-white/70">
             Zaloguj się, aby zarządzać flotą i zleceniami w czasie rzeczywistym.

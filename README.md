@@ -1,4 +1,4 @@
-# 3D Haulage Driver Portal
+# 3DHaulage Driver Portal
 
 Nowoczesny, responsywny panel webowy działający na wspólnej bazie Supabase wykorzystywanej przez aplikację KierowcaApp. Projekt
 udostępnia komplet narzędzi dla dyspozytorów i kierowców – od monitoringu floty po codzienną checklistę, która automatycznie
@@ -31,7 +31,7 @@ Androidzie dzięki Capacitorowi.
    VITE_SUPABASE_URL="https://twoj-projekt.supabase.co"
    VITE_SUPABASE_ANON_KEY="twój-klucz-anon"
    VITE_GOOGLE_DRIVE_PARENT_FOLDER_ID="id-folderu-na-dysku"
-   VITE_CHECKLIST_TEMPLATE_ID="best-food-checklist"
+   VITE_CHECKLIST_TEMPLATE_ID="3dhaulage-checklist"
    ```
 2. Zainstaluj zależności (patrz sekcja „Instalacja zależności”).
 3. Uruchom środowisko deweloperskie: `npm run dev` – aplikacja wystartuje pod `http://localhost:5173`.
@@ -181,7 +181,7 @@ Dopasuj polityki do własnego schematu – powyższe są wzorcem startowym.
    W repozytorium znajdują się dwa gotowe szablony HTML wykorzystywane przez funkcję:
 
    - `default-checklist-template.html` – uniwersalny raport z tabelą statusów,
-   - `best-food-checklist.html` – zielona karta inspirowana papierową checklistą (ustaw jako `VITE_CHECKLIST_TEMPLATE_ID=best-food-checklist`).
+   - `3dhaulage-checklist.html` – zielona karta inspirowana papierową checklistą (ustaw jako `VITE_CHECKLIST_TEMPLATE_ID=3dhaulage-checklist`).
 2. Ustaw sekrety funkcji (Supabase → Edge Functions → Secrets):
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `GOOGLE_CLIENT_EMAIL`
@@ -253,4 +253,4 @@ src/
 - Zaimplementuj powiadomienia push (Firebase Cloud Messaging) dzięki Capacitor Push Notifications.
 - Rozważ włączenie testów E2E (Playwright/Cypress) dla krytycznych scenariuszy.
 
-Powodzenia w dalszym rozwijaniu platformy 3D Haulage! 🚛
+Powodzenia w dalszym rozwijaniu platformy 3DHaulage! 🚛
